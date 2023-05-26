@@ -2,13 +2,14 @@
 
 import tempfile
 
+import fire
+import requests
+
 import numpy as np
 import torch
 
 import cv2
 from PIL import Image
-
-import fire
 
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
 from diffusers.utils import load_image
@@ -58,6 +59,60 @@ class Commander:
         #     prompt, num_inference_steps=20, generator=generator, image=canny_image
         # ).images[0]
         image = pipe(prompt, num_inference_steps=20, image=canny_image).images[0]
+
+        print(self._save_to_tmp(image))
+
+    def depth(
+        self,
+        url: str="https://hf.co/datasets/huggingface/documentation-images/resolve/main/diffusers/input_image_vermeer.png",
+        prompt: str="elf woman in the woods") -> int:
+        '''ControlNet with depth information to guide Stable Diffusion; print path to result'''
+
+        # TODO: add image size check, etc. and refactor out
+        # image = np.array(load_image(url))
+        image = Image.open(requests.get(url, stream=True).raw)
+
+        processor = DPTImageProcessor.from_pretrained("Intel/dpt-large")
+        model = DPTForDepthEstimation.from_pretrained("Intel/dpt-large")
+
+        # prepare image for the model
+        inputs = processor(images=image, return_tensors="pt")
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            predicted_depth = outputs.predicted_depth
+
+        # interpolate to original size
+        prediction = torch.nn.functional.interpolate(
+            predicted_depth.unsqueeze(1),
+            size=image.size[::-1],
+            mode="bicubic",
+            align_corners=False,
+        )
+
+        # fetch depth image
+        output = prediction.squeeze().cpu().numpy()
+        formatted = (output * 255 / np.max(output)).astype("uint8")
+        depth_image = Image.fromarray(formatted)
+
+        controlnet = ControlNetModel.from_pretrained("lllyasviel/control_v11f1p_sd15_depth", torch_dtype=torch.float16)
+        pipe = StableDiffusionControlNetPipeline.from_pretrained(
+            "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16
+            )
+
+        # speed up diffusion process with faster scheduler and memory optimization
+        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+        # TODO: add check
+        # remove following line if xformers is not installed
+        pipe.enable_xformers_memory_efficient_attention()
+        pipe.enable_model_cpu_offload()
+
+        # generate image
+        # generator = torch.manual_seed(0)
+        # image = pipe(
+        #     prompt, num_inference_steps=20, generator=generator, image=canny_image
+        # ).images[0]
+        image = pipe(prompt, num_inference_steps=20, image=depth_image).images[0]
 
         print(self._save_to_tmp(image))
 
