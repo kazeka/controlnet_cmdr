@@ -3,5 +3,6 @@ fire
 numpy
 opencv-python
 Pillow
+requests
 torch
 transformers
