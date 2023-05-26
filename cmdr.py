@@ -1,0 +1,66 @@
+#!/bin/env python3
+
+import tempfile
+
+import numpy as np
+import torch
+
+import cv2
+from PIL import Image
+
+import fire
+
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
+from diffusers.utils import load_image
+from transformers import DPTImageProcessor, DPTForDepthEstimation
+
+
+class Commander:
+    @staticmethod
+    def _save_to_tmp(image: Image) -> str:
+        fpath = None
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+            image.save(temp_file.name)
+            fpath = temp_file.name
+        return fpath
+
+    def canny(
+        self,
+        url: str="https://upload.wikimedia.org/wikipedia/en/7/7d/Lenna_%28test_image%29.png",
+        prompt: str="futuristic-looking woman") -> int:
+        '''ControlNet with Canny edges to guide Stable Diffusion; print path to result'''
+
+        # TODO: add image size check
+        image = np.array(load_image(url))
+
+        controlnet = ControlNetModel.from_pretrained("lllyasviel/control_v11p_sd15_canny", torch_dtype=torch.float16)
+
+        # get canny image
+        image = cv2.Canny(image, 100, 200)
+        image = image[:, :, None]
+        image = np.concatenate([image, image, image], axis=2)
+        canny_image = Image.fromarray(image)
+
+        pipe = StableDiffusionControlNetPipeline.from_pretrained(
+            "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16
+            )
+
+        # speed up diffusion process with faster scheduler and memory optimization
+        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+        # TODO: add check
+        # remove following line if xformers is not installed
+        pipe.enable_xformers_memory_efficient_attention()
+        pipe.enable_model_cpu_offload()
+
+        # generate image
+        # generator = torch.manual_seed(0)
+        # image = pipe(
+        #     prompt, num_inference_steps=20, generator=generator, image=canny_image
+        # ).images[0]
+        image = pipe(prompt, num_inference_steps=20, image=canny_image).images[0]
+
+        print(self._save_to_tmp(image))
+
+
+if __name__ == '__main__':
+    fire.Fire(Commander)
