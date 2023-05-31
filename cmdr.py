@@ -15,6 +15,7 @@ from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCM
 from diffusers.utils import load_image
 from transformers import DPTImageProcessor, DPTForDepthEstimation
 
+from extensions.stable_diffusion_reference import StableDiffusionReferencePipeline
 from extensions.stable_diffusion_controlnet_reference import StableDiffusionControlNetReferencePipeline
 
 
@@ -123,26 +124,33 @@ class Commander:
 
     def reference(
             self,
-            url: str="https://upload.wikimedia.org/wikipedia/en/7/7d/Lenna_%28test_image%29.png",
-            prompt: str="futuristic-looking woman") -> int:
+            url: str="https://user-images.githubusercontent.com/19834515/238250204-4df7ec51-6a7f-4766-a0df-9b8153dc33d4.png",
+            prompt: str="woman in street, masterpiece, best quality",
+            negative_prompt: str="lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry") -> int:
             '''ControlNet with reference preprocessors'''
             
             input_image = load_image(url)
                     
             # get canny image
-            image = cv2.Canny(np.array(input_image), 100, 200)
-            image = image[:, :, None]
-            image = np.concatenate([image, image, image], axis=2)
-            canny_image = Image.fromarray(image)
+            # image = cv2.Canny(np.array(input_image), 100, 200)
+            # image = image[:, :, None]
+            # image = np.concatenate([image, image, image], axis=2)
+            # canny_image = Image.fromarray(image)
             
-            controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16)
+            # controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16)
             
-            pipe = StableDiffusionControlNetReferencePipeline.from_pretrained(
+            # pipe = StableDiffusionControlNetReferencePipeline.from_pretrained(
+            #     "runwayml/stable-diffusion-v1-5",
+            #     controlnet=controlnet,
+            #     safety_checker=None,
+            #     torch_dtype=torch.float16
+            # ).to('cuda:0')
+
+            pipe = StableDiffusionReferencePipeline.from_pretrained(
                 "runwayml/stable-diffusion-v1-5",
-                controlnet=controlnet,
                 safety_checker=None,
                 torch_dtype=torch.float16
-            ).to('cuda:0')
+                ).to('cuda:0')
             
             pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
             # TODO: add check if xformers is not installed use pipe.enable_attention_slicing()
@@ -153,7 +161,8 @@ class Commander:
             image = pipe(
                 ref_image=input_image,
                 prompt=prompt,
-                image=canny_image,
+                # image=canny_image,
+                negative_prompt=negative_prompt,
                 num_inference_steps=20,
                 reference_attn=True,
                 reference_adain=True).images[0]
