@@ -16,6 +16,10 @@ from diffusers.utils import load_image
 from transformers import DPTImageProcessor, DPTForDepthEstimation
 
 
+# OPTIMIZATIONS
+torch.backends.cuda.matmul.allow_tf32 = True
+
+
 class Commander:
     @staticmethod
     def _save_to_tmp(image: Image) -> str:
@@ -48,9 +52,9 @@ class Commander:
 
         # speed up diffusion process with faster scheduler and memory optimization
         pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-        # TODO: add check
-        # remove following line if xformers is not installed
-        pipe.enable_xformers_memory_efficient_attention()
+        # TODO: add check if xformers is not installed use pipe.enable_attention_slicing()
+        # pipe.enable_xformers_memory_efficient_attention()
+        pipe.enable_attention_slicing(1)
         pipe.enable_model_cpu_offload()
 
         # generate image
@@ -69,8 +73,7 @@ class Commander:
         '''ControlNet with depth information to guide Stable Diffusion; print path to result'''
 
         # TODO: add image size check, etc. and refactor out
-        # image = np.array(load_image(url))
-        image = Image.open(requests.get(url, stream=True).raw)
+        image = load_image(url)
 
         processor = DPTImageProcessor.from_pretrained("Intel/dpt-large")
         model = DPTForDepthEstimation.from_pretrained("Intel/dpt-large")
@@ -102,9 +105,9 @@ class Commander:
 
         # speed up diffusion process with faster scheduler and memory optimization
         pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-        # TODO: add check
-        # remove following line if xformers is not installed
-        pipe.enable_xformers_memory_efficient_attention()
+        # TODO: add check if xformers is not installed use pipe.enable_attention_slicing()
+        # pipe.enable_xformers_memory_efficient_attention()
+        pipe.enable_attention_slicing(1)
         pipe.enable_model_cpu_offload()
 
         # generate image
