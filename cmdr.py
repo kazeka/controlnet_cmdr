@@ -15,6 +15,8 @@ from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCM
 from diffusers.utils import load_image
 from transformers import DPTImageProcessor, DPTForDepthEstimation
 
+from extensions.stable_diffusion_controlnet_reference import StableDiffusionControlNetReferencePipeline
+
 
 # OPTIMIZATIONS
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -118,6 +120,45 @@ class Commander:
         image = pipe(prompt, num_inference_steps=20, image=depth_image).images[0]
 
         print(self._save_to_tmp(image))
+
+    def reference(
+            self,
+            url: str="https://upload.wikimedia.org/wikipedia/en/7/7d/Lenna_%28test_image%29.png",
+            prompt: str="futuristic-looking woman") -> int:
+            '''ControlNet with reference preprocessors'''
+            
+            input_image = load_image(url)
+                    
+            # get canny image
+            image = cv2.Canny(np.array(input_image), 100, 200)
+            image = image[:, :, None]
+            image = np.concatenate([image, image, image], axis=2)
+            canny_image = Image.fromarray(image)
+            
+            controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16)
+            
+            pipe = StableDiffusionControlNetReferencePipeline.from_pretrained(
+                "runwayml/stable-diffusion-v1-5",
+                controlnet=controlnet,
+                safety_checker=None,
+                torch_dtype=torch.float16
+            ).to('cuda:0')
+            
+            pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+            # TODO: add check if xformers is not installed use pipe.enable_attention_slicing()
+            # pipe.enable_xformers_memory_efficient_attention()
+            pipe.enable_attention_slicing(1)
+            pipe.enable_model_cpu_offload()
+            
+            image = pipe(
+                ref_image=input_image,
+                prompt=prompt,
+                image=canny_image,
+                num_inference_steps=20,
+                reference_attn=True,
+                reference_adain=True).images[0]
+
+            print(self._save_to_tmp(image))
 
 
 if __name__ == '__main__':
