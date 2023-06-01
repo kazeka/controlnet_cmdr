@@ -15,6 +15,8 @@ from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCM
 from diffusers.utils import load_image
 from transformers import DPTImageProcessor, DPTForDepthEstimation
 
+from controlnet_aux import HEDdetector, OpenposeDetector
+
 from extensions.stable_diffusion_reference import StableDiffusionReferencePipeline
 from extensions.stable_diffusion_controlnet_reference import StableDiffusionControlNetReferencePipeline
 
@@ -23,7 +25,7 @@ from extensions.stable_diffusion_controlnet_reference import StableDiffusionCont
 torch.backends.cuda.matmul.allow_tf32 = True
 
 
-NEGATIVE_PROMPT="lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry"
+NEGATIVE_PROMPT="lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, monochrome"
 
 
 class Commander:
@@ -142,6 +144,90 @@ class Commander:
         print(self._save_to_tmp(images))
 
 
+    def hed(
+        self,
+        url: str="images/bedroom.jpg",
+        prompt: str="cyberpunk interior",
+        negative_prompt: str=NEGATIVE_PROMPT,
+        n_steps: int=20,
+        n_images: int=1,
+        guidance_scale: float=7.5):
+        '''ControlNet with HED Boundary (edge detection) information to guide Stable Diffusion; prints path to result'''
+
+        # TODO: add image size check, etc. and refactor out
+        image = load_image(url)
+
+        processor = HEDdetector.from_pretrained("lllyasviel/Annotators")
+        detected_map = processor(image)
+
+
+        controlnet = ControlNetModel.from_pretrained("fusing/stable-diffusion-v1-5-controlnet-hed", torch_dtype=torch.float16)
+        pipe = StableDiffusionControlNetPipeline.from_pretrained(
+            "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16
+            )
+
+        # speed up diffusion process with faster scheduler and memory optimization
+        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+        # TODO: add check if xformers is not installed use pipe.enable_attention_slicing()
+        pipe.enable_xformers_memory_efficient_attention()
+        # pipe.enable_attention_slicing(1)
+        pipe.enable_model_cpu_offload()
+
+        # generate image
+        # generator = torch.manual_seed(0)
+        images = pipe(
+            image=detected_map,
+            prompt=prompt,
+            num_inference_steps=n_steps,
+            negative_prompt=negative_prompt,
+            num_images_per_prompt=n_images,
+            guidance_scale=guidance_scale).images
+
+        print(self._save_to_tmp(images))
+
+
+    def pose(
+        self,
+        url: str="images/yoga1.jpeg",
+        prompt: str="super-woman in space, best quality, extremely detailed",
+        negative_prompt: str=NEGATIVE_PROMPT,
+        n_steps: int=20,
+        n_images: int=1,
+        guidance_scale: float=7.5):
+        '''ControlNet with pose information to guide Stable Diffusion; prints path to result'''
+
+        # TODO: add image size check, etc. and refactor out
+        image = load_image(url)
+
+        processor = OpenposeDetector.from_pretrained("lllyasviel/Annotators")
+        detected_pose = processor(image)
+
+
+        controlnet = ControlNetModel.from_pretrained("fusing/stable-diffusion-v1-5-controlnet-openpose", torch_dtype=torch.float16)
+        pipe = StableDiffusionControlNetPipeline.from_pretrained(
+            "SG161222/Realistic_Vision_V2.0", controlnet=controlnet, torch_dtype=torch.float16
+            )
+
+        # speed up diffusion process with faster scheduler and memory optimization
+        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+        # TODO: add check if xformers is not installed use pipe.enable_attention_slicing()
+        pipe.enable_xformers_memory_efficient_attention()
+        # pipe.enable_attention_slicing(1)
+        pipe.enable_model_cpu_offload()
+
+        # generate image
+        # generator = torch.manual_seed(0)
+        images = pipe(
+            image=detected_pose,
+            prompt=prompt,
+            num_inference_steps=n_steps,
+            negative_prompt=negative_prompt,
+            num_images_per_prompt=n_images,
+            guidance_scale=guidance_scale).images
+
+        print(self._save_to_tmp(images))
+
+
     def reference(
             self,
             url: str="https://user-images.githubusercontent.com/19834515/238250204-4df7ec51-6a7f-4766-a0df-9b8153dc33d4.png",
@@ -181,6 +267,7 @@ class Commander:
                 reference_adain=reference_adain).images
 
             print(self._save_to_tmp(images))
+  
     
     def controlnet_reference(
             self,

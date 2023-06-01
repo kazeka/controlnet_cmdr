@@ -1,4 +1,5 @@
 git+https://github.com/huggingface/diffusers
+controlnet-aux
 fire
 numpy
 opencv-python
