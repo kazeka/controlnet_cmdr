@@ -46,7 +46,7 @@ class Commander:
         guidance_scale: float=7.5,
         canny_low: int=100,
         canny_high: int=200):
-        '''ControlNet with Canny edges to guide Stable Diffusion; print paths to result tempfiles'''
+        '''ControlNet with Canny edges to guide Stable Diffusion; prints paths to result tempfiles'''
 
         # TODO: add image size check
         image = np.array(load_image(url))
@@ -80,6 +80,7 @@ class Commander:
 
         print(self._save_to_tmp(images, n_images))
 
+
     def depth(
         self,
         url: str="https://hf.co/datasets/huggingface/documentation-images/resolve/main/diffusers/input_image_vermeer.png",
@@ -88,7 +89,7 @@ class Commander:
         n_steps: int=20,
         n_images: int=1,
         guidance_scale: float=7.5):
-        '''ControlNet with depth information to guide Stable Diffusion; print path to result'''
+        '''ControlNet with depth information to guide Stable Diffusion; prints path to result'''
 
         # TODO: add image size check, etc. and refactor out
         image = load_image(url)
@@ -153,7 +154,7 @@ class Commander:
             style_fidelity: float=0.5,
             reference_attn: bool=True,
             reference_adain: bool=True):
-            '''ControlNet with reference preprocessors; print path to result'''
+            '''ControlNet with image as reference preprocessor; prints path to result'''
             
             input_image = load_image(url)
 
@@ -180,6 +181,58 @@ class Commander:
                 reference_adain=reference_adain).images
 
             print(self._save_to_tmp(images))
+    
+    def controlnet_reference(
+            self,
+            url: str="https://user-images.githubusercontent.com/19834515/238250204-4df7ec51-6a7f-4766-a0df-9b8153dc33d4.png",
+            prompt: str="woman in street, masterpiece, best quality",
+            model: str="SG161222/Realistic_Vision_V2.0",
+            negative_prompt: str=NEGATIVE_PROMPT,
+            n_images: int=1,
+            n_steps: int=20,
+            guidance_scale: float=7.5,
+            style_fidelity: float=0.5,
+            reference_attn: bool=True,
+            reference_adain: bool=True,
+            canny_low: int=100,
+            canny_high: int=200):
+        '''ControlNet with image as reference + Canny preprocessor; prints path to result'''
+
+        input_image = load_image(url)
+
+        # get canny image
+        image = cv2.Canny(np.array(input_image), canny_low, canny_high)
+        image = image[:, :, None]
+        image = np.concatenate([image, image, image], axis=2)
+        canny_image = Image.fromarray(image)
+
+        controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16)
+
+        pipe = StableDiffusionControlNetReferencePipeline.from_pretrained(
+            pretrained_model_name_or_path=model,
+            controlnet=controlnet,
+            safety_checker=None,
+            torch_dtype=torch.float16
+            ).to('cuda:0')
+        
+        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+        # TODO: add check if xformers is not installed use pipe.enable_attention_slicing()
+        pipe.enable_xformers_memory_efficient_attention()
+        # pipe.enable_attention_slicing(1)
+        pipe.enable_model_cpu_offload()
+
+        images = pipe(
+                ref_image=input_image,
+                prompt=prompt,
+                image=canny_image,
+                num_inference_steps=n_steps,
+                negative_prompt=negative_prompt,
+                num_images_per_prompt=n_images,
+                style_fidelity=style_fidelity,
+                reference_attn=reference_attn,
+                reference_adain=reference_adain).images
+        
+        print(self._save_to_tmp(images))
 
 
 if __name__ == '__main__':
