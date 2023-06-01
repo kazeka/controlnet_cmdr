@@ -145,6 +145,7 @@ class Commander:
             self,
             url: str="https://user-images.githubusercontent.com/19834515/238250204-4df7ec51-6a7f-4766-a0df-9b8153dc33d4.png",
             prompt: str="woman in street, masterpiece, best quality",
+            model: str="SG161222/Realistic_Vision_V2.0",
             negative_prompt: str=NEGATIVE_PROMPT,
             n_images: int=1,
             n_steps: int=20,
@@ -157,7 +158,7 @@ class Commander:
             input_image = load_image(url)
 
             pipe = StableDiffusionReferencePipeline.from_pretrained(
-                "runwayml/stable-diffusion-v1-5",
+                pretrained_model_name_or_path=model,
                 safety_checker=None,
                 torch_dtype=torch.float16
                 ).to('cuda:0')
