@@ -47,7 +47,8 @@ class Commander:
         n_images: int=1,
         guidance_scale: float=7.5,
         canny_low: int=100,
-        canny_high: int=200):
+        canny_high: int=200,
+        **kwargs):
         '''ControlNet with Canny edges to guide Stable Diffusion; prints paths to result tempfiles'''
 
         # TODO: add image size check
@@ -78,7 +79,8 @@ class Commander:
             num_inference_steps=n_steps,
             negative_prompt=negative_prompt,
             num_images_per_prompt=n_images,
-            guidance_scale=guidance_scale).images
+            guidance_scale=guidance_scale,
+            **kwargs).images
 
         print(self._save_to_tmp(images, n_images))
 
@@ -90,7 +92,8 @@ class Commander:
         negative_prompt: str=NEGATIVE_PROMPT,
         n_steps: int=20,
         n_images: int=1,
-        guidance_scale: float=7.5):
+        guidance_scale: float=7.5,
+        **kwargs):
         '''ControlNet with depth information to guide Stable Diffusion; prints path to result'''
 
         # TODO: add image size check, etc. and refactor out
@@ -139,7 +142,8 @@ class Commander:
             num_inference_steps=n_steps,
             negative_prompt=negative_prompt,
             num_images_per_prompt=n_images,
-            guidance_scale=guidance_scale).images
+            guidance_scale=guidance_scale,
+            **kwargs).images
 
         print(self._save_to_tmp(images))
 
@@ -151,7 +155,8 @@ class Commander:
         negative_prompt: str=NEGATIVE_PROMPT,
         n_steps: int=20,
         n_images: int=1,
-        guidance_scale: float=7.5):
+        guidance_scale: float=7.5,
+        **kwargs):
         '''ControlNet with HED Boundary (edge detection) information to guide Stable Diffusion; prints path to result'''
 
         # TODO: add image size check, etc. and refactor out
@@ -181,7 +186,8 @@ class Commander:
             num_inference_steps=n_steps,
             negative_prompt=negative_prompt,
             num_images_per_prompt=n_images,
-            guidance_scale=guidance_scale).images
+            guidance_scale=guidance_scale,
+            **kwargs).images
 
         print(self._save_to_tmp(images))
 
@@ -193,7 +199,8 @@ class Commander:
         negative_prompt: str=NEGATIVE_PROMPT,
         n_steps: int=20,
         n_images: int=1,
-        guidance_scale: float=7.5):
+        guidance_scale: float=7.5,
+        **kwargs):
         '''ControlNet with pose information to guide Stable Diffusion; prints path to result'''
 
         # TODO: add image size check, etc. and refactor out
@@ -223,7 +230,8 @@ class Commander:
             num_inference_steps=n_steps,
             negative_prompt=negative_prompt,
             num_images_per_prompt=n_images,
-            guidance_scale=guidance_scale).images
+            guidance_scale=guidance_scale,
+            **kwargs).images
 
         print(self._save_to_tmp(images))
 
@@ -239,7 +247,8 @@ class Commander:
             guidance_scale: float=7.5,
             style_fidelity: float=0.5,
             reference_attn: bool=True,
-            reference_adain: bool=True):
+            reference_adain: bool=True,
+            **kwargs):
             '''ControlNet with image as reference preprocessor; prints path to result'''
             
             input_image = load_image(url)
@@ -264,7 +273,8 @@ class Commander:
                 num_images_per_prompt=n_images,
                 style_fidelity=style_fidelity,
                 reference_attn=reference_attn,
-                reference_adain=reference_adain).images
+                reference_adain=reference_adain,
+                **kwargs).images
 
             print(self._save_to_tmp(images))
   
@@ -282,7 +292,8 @@ class Commander:
             reference_attn: bool=True,
             reference_adain: bool=True,
             canny_low: int=100,
-            canny_high: int=200):
+            canny_high: int=200,
+            **kwargs):
         '''ControlNet with image as reference + Canny preprocessor; prints path to result'''
 
         input_image = load_image(url)
@@ -317,7 +328,8 @@ class Commander:
                 num_images_per_prompt=n_images,
                 style_fidelity=style_fidelity,
                 reference_attn=reference_attn,
-                reference_adain=reference_adain).images
+                reference_adain=reference_adain,
+                **kwargs).images
         
         print(self._save_to_tmp(images))
 
